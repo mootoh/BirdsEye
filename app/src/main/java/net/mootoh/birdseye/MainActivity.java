@@ -1,6 +1,7 @@
 package net.mootoh.birdseye;
 
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -20,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements NotebookFragment.OnFragmentInteractionListener {
     private static final String CONSUMER_KEY = "Your consumer key";
     private static final String CONSUMER_SECRET = "Your consumer secret";
 
@@ -35,6 +36,13 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         loginToEvernote();
+        if (! mEvernoteSession.isLoggedIn()) {
+            mEvernoteSession.authenticate(this);
+            finish();
+            return;
+        }
+        Log.d(TAG, "auth token = " + mEvernoteSession.getAuthToken());
+
         getListOfNotebooks();
     }
 
@@ -45,30 +53,33 @@ public class MainActivity extends Activity {
             public void onSuccess(List<Notebook> result) {
                 List<String> namesList = new ArrayList<>(result.size());
                 for (final Notebook notebook : result) {
-                    namesList.add(notebook.getName());
-
-
-                    NoteFilter filter = new NoteFilter();
-                    filter.setNotebookGuid(notebook.getGuid());
-                    noteStoreClient.findNotesAsync(filter, 0, 100, new EvernoteCallback<NoteList>() {
-                        @Override
-                        public void onSuccess(NoteList noteList) {
-                            for (com.evernote.edam.type.Note note : noteList.getNotes()) {
-                                Log.d(TAG, "found note in notebook " + notebook.getName() + ": " + note.getTitle());
-                            }
-                        }
-
-                        @Override
-                        public void onException(Exception e) {
-
-                        }
-                    }
-                    );
+//                    namesList.add(notebook.getName());
+//
+//                    NoteFilter filter = new NoteFilter();
+//                    filter.setNotebookGuid(notebook.getGuid());
+//                    noteStoreClient.findNotesAsync(filter, 0, 100, new EvernoteCallback<NoteList>() {
+//                        @Override
+//                        public void onSuccess(NoteList noteList) {
+//                            for (com.evernote.edam.type.Note note : noteList.getNotes()) {
+//                                Log.d(TAG, "found note in notebook " + notebook.getName() + ": " + note.getTitle());
+//                            }
+//                        }
+//
+//                        @Override
+//                        public void onException(Exception e) {
+//
+//                        }
+//                    }
+//                    );
                 }
 
                 String notebookNames = TextUtils.join(", ", namesList);
                 Toast.makeText(getApplicationContext(), notebookNames + " notebooks have been retrieved", Toast.LENGTH_LONG).show();
                 Log.d(TAG, "notebooks: " + notebookNames);
+
+                FragmentManager fmgr = getFragmentManager();
+                NotebookFragment fragment = (NotebookFragment) fmgr.findFragmentById(R.id.notebook_list);
+                fragment.setNotebooks(result);
             }
 
             @Override
@@ -101,9 +112,6 @@ public class MainActivity extends Activity {
                 .setSupportAppLinkedNotebooks(SUPPORT_APP_LINKED_NOTEBOOKS)
                 .build(consumerKey, consumerSecret)
                 .asSingleton();
-
-        if (! mEvernoteSession.isLoggedIn())
-            mEvernoteSession.authenticate(this);
     }
 
     @Override
@@ -141,5 +149,12 @@ public class MainActivity extends Activity {
                 }
                 break;
         }
+    }
+
+    @Override
+    public void onFragmentInteraction(Notebook notebook) {
+        Intent intent = new Intent(this, NoteActivity.class);
+        intent.putExtra("notebook", notebook);
+        startActivity(intent);
     }
 }
